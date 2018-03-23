@@ -50,6 +50,14 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 	decMsg := doRSAdecrypt(rMsg.Encdata)
 	spew.Dump(decMsg)
 
+	// TODO: check sha1 of inner data
+	decBuf := mtproto.NewDecodeBuf(decMsg[20:])
+	decObj := decBuf.Object()
+
+	decData := decObj.(mtproto.TL_p_q_inner_data)
+	// spew.Dump(decObj)
+
+	newNonce := decData.New_nonce
 	// dh2048p := dh2048_p
 	// dh2048g := dh2048_g
 	bigIntDH2048P := new(big.Int).SetBytes(dh2048_p)
@@ -79,13 +87,13 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 	// spew.Dump(innerP)
 
 	tmp_aes_key_and_iv := make([]byte, 64)
-	sha1_a := sha1.Sum(append(cd.Nonce, cd.ServerNonce...))
-	sha1_b := sha1.Sum(append(cd.ServerNonce, cd.Nonce...))
-	sha1_c := sha1.Sum(append(cd.Nonce, cd.Nonce...))
+	sha1_a := sha1.Sum(append(newNonce, cd.ServerNonce...))
+	sha1_b := sha1.Sum(append(cd.ServerNonce, newNonce...))
+	sha1_c := sha1.Sum(append(newNonce, newNonce...))
 	copy(tmp_aes_key_and_iv, sha1_a[:])
 	copy(tmp_aes_key_and_iv[20:], sha1_b[:])
 	copy(tmp_aes_key_and_iv[40:], sha1_c[:])
-	copy(tmp_aes_key_and_iv[60:], cd.Nonce[:4])
+	copy(tmp_aes_key_and_iv[60:], newNonce[:4])
 
 	tmpLen := 20 + len(innerP)
 	if tmpLen%16 > 0 {
@@ -99,10 +107,10 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 	copy(tmp_encrypted_answer, sha1_tmp[:])
 	copy(tmp_encrypted_answer[20:], innerP)
 
-	// e := NewAES256IGECryptor(tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
-	// tmp_encrypted_answer, _ = e.Encrypt(tmp_encrypted_answer)
+	e := NewAES256IGECryptor(tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
+	tmp_encrypted_answer, _ = e.Encrypt(tmp_encrypted_answer)
 
-	tmp_encrypted_answer, err = doAES256IGEencrypt(tmp_encrypted_answer, tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
+	// tmp_encrypted_answer, err = doAES256IGEencrypt(tmp_encrypted_answer, tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
 
 	if err != nil {
 		log.Println(err.Error())
@@ -113,7 +121,7 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 		Server_nonce:     cd.ServerNonce,
 		Encrypted_answer: tmp_encrypted_answer,
 	}
-	log.Println("nonces:", cd.Nonce, cd.ServerNonce)
+	log.Println("nonces:", cd.Nonce, cd.ServerNonce, rMsg.Nonce, newNonce)
 	// spew.Dump(tmp_encrypted_answer)
 
 	pack, err := mtproto.MakePacket(resDH)

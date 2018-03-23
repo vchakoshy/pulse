@@ -298,7 +298,7 @@ func (m *DecodeBuf) Object() (r TL) {
 	}
 
 	// TODO: How to make it available only in DEBUG mode?
-	//fmt.Printf("[%08x]\n", constructor)
+	fmt.Printf("[%08x]\n", constructor)
 	//m.dump()
 
 	switch constructor {
@@ -311,6 +311,16 @@ func (m *DecodeBuf) Object() (r TL) {
 			m.BigInt(),
 			uint64(m.Long()),
 			m.StringBytes(),
+		}
+
+	case crc_p_q_inner_data:
+		r = TL_p_q_inner_data{
+			m.BigInt(),
+			m.BigInt(),
+			m.BigInt(),
+			m.Bytes(16),
+			m.Bytes(16),
+			m.Bytes(32),
 		}
 
 	case crc_req_pq:
