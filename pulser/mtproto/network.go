@@ -420,9 +420,6 @@ func ReadData(conn net.Conn) (interface{}, error) {
 		}
 		size = (int(b[0]) | int(b[1])<<8 | int(b[2])<<16) << 2
 	}
-	log.Println("here3")
-
-	log.Println(size)
 
 	left := size
 	buf := make([]byte, size)
@@ -434,8 +431,6 @@ func ReadData(conn net.Conn) (interface{}, error) {
 		}
 		left -= n
 	}
-
-	log.Println("here4")
 
 	if size == 4 {
 		return nil, fmt.Errorf("Server response error: %d", int32(binary.LittleEndian.Uint32(buf)))
@@ -496,8 +491,13 @@ func ReadData(conn net.Conn) (interface{}, error) {
 	return data, nil
 }
 
+func EncodeTL(msg TL) []byte {
+	obj := msg.encode()
+	return obj
+}
+
 func MakePacket(msg TL) ([]byte, error) {
-	log.Println("make packet ", msg)
+	// log.Println("make packet ", msg)
 	obj := msg.encode()
 	x := NewEncodeBuf(256)
 

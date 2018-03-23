@@ -153,13 +153,13 @@ func (e TL_server_DH_params_ok) encode() []byte {
 	x.UInt(crc_server_DH_params_ok)
 	x.Bytes(e.Nonce)
 	x.Bytes(e.Server_nonce)
-	x.Bytes(e.Encrypted_answer)
+	x.StringBytes(e.Encrypted_answer)
 
 	return x.buf
 }
 func (e TL_server_DH_params_fail) encode() []byte { return nil }
 func (e TL_server_DH_inner_data) encode() []byte {
-	x := NewEncodeBuf(512)
+	x := NewEncodeBuf(1024)
 	x.UInt(crc_server_DH_inner_data)
 	x.Bytes(e.Nonce)
 	x.Bytes(e.Server_nonce)

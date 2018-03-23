@@ -55,18 +55,16 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 	decObj := decBuf.Object()
 
 	decData := decObj.(mtproto.TL_p_q_inner_data)
-	// spew.Dump(decObj)
 
 	newNonce := decData.New_nonce
-	// dh2048p := dh2048_p
-	// dh2048g := dh2048_g
+
 	bigIntDH2048P := new(big.Int).SetBytes(dh2048_p)
 	bigIntDH2048G := new(big.Int).SetBytes(dh2048_g)
 
 	bigIntA := new(big.Int).SetBytes(generateNonce(256))
 
-	g_a := new(big.Int)
-	g_a.Exp(bigIntDH2048G, bigIntA, bigIntDH2048P)
+	gA := new(big.Int)
+	gA.Exp(bigIntDH2048G, bigIntA, bigIntDH2048P)
 
 	gs := []int{3, 4, 7}
 
@@ -75,25 +73,20 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 		Server_nonce: cd.ServerNonce,
 		G:            int32(gs[mathrand.Intn(3)]),
 		Dh_prime:     new(big.Int).SetBytes(dh2048_p),
-		G_a:          g_a,
+		G_a:          gA,
 		Server_time:  int32(time.Now().Unix()),
 	}
 
-	innerP, err := mtproto.MakePacket(ed)
-	if err != nil {
-		panic(err)
-	}
-	log.Println("inner p TL_server_DH_inner_data")
-	// spew.Dump(innerP)
+	innerP := mtproto.EncodeTL(ed)
 
-	tmp_aes_key_and_iv := make([]byte, 64)
-	sha1_a := sha1.Sum(append(newNonce, cd.ServerNonce...))
-	sha1_b := sha1.Sum(append(cd.ServerNonce, newNonce...))
-	sha1_c := sha1.Sum(append(newNonce, newNonce...))
-	copy(tmp_aes_key_and_iv, sha1_a[:])
-	copy(tmp_aes_key_and_iv[20:], sha1_b[:])
-	copy(tmp_aes_key_and_iv[40:], sha1_c[:])
-	copy(tmp_aes_key_and_iv[60:], newNonce[:4])
+	tmpAesKeyAndIv := make([]byte, 64)
+	sha1A := sha1.Sum(append(newNonce, cd.ServerNonce...))
+	sha1B := sha1.Sum(append(cd.ServerNonce, newNonce...))
+	sha1C := sha1.Sum(append(newNonce, newNonce...))
+	copy(tmpAesKeyAndIv, sha1A[:])
+	copy(tmpAesKeyAndIv[20:], sha1B[:])
+	copy(tmpAesKeyAndIv[40:], sha1C[:])
+	copy(tmpAesKeyAndIv[60:], newNonce[:4])
 
 	tmpLen := 20 + len(innerP)
 	if tmpLen%16 > 0 {
@@ -102,16 +95,18 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 		tmpLen = 20 + len(innerP)
 	}
 
-	tmp_encrypted_answer := make([]byte, tmpLen)
-	sha1_tmp := sha1.Sum(innerP)
-	copy(tmp_encrypted_answer, sha1_tmp[:])
-	copy(tmp_encrypted_answer[20:], innerP)
+	tmpEncryptedAnswer := make([]byte, tmpLen)
+	sha1Tmp := sha1.Sum(innerP)
+	copy(tmpEncryptedAnswer, sha1Tmp[:])
+	copy(tmpEncryptedAnswer[20:], innerP)
 
-	e := NewAES256IGECryptor(tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
-	tmp_encrypted_answer, _ = e.Encrypt(tmp_encrypted_answer)
+	log.Println("aes key: ", tmpAesKeyAndIv[:32])
+	log.Println("aes iv: ", tmpAesKeyAndIv[32:64])
 
-	// tmp_encrypted_answer, err = doAES256IGEencrypt(tmp_encrypted_answer, tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
+	aesKey := tmpAesKeyAndIv[:32]
+	aesIV := tmpAesKeyAndIv[32:64]
 
+	encryptedAnswer, err := doAES256IGEencrypt(tmpEncryptedAnswer, aesKey, aesIV)
 	if err != nil {
 		log.Println(err.Error())
 	}
@@ -119,10 +114,8 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 	resDH := mtproto.TL_server_DH_params_ok{
 		Nonce:            cd.Nonce,
 		Server_nonce:     cd.ServerNonce,
-		Encrypted_answer: tmp_encrypted_answer,
+		Encrypted_answer: encryptedAnswer,
 	}
-	log.Println("nonces:", cd.Nonce, cd.ServerNonce, rMsg.Nonce, newNonce)
-	// spew.Dump(tmp_encrypted_answer)
 
 	pack, err := mtproto.MakePacket(resDH)
 	if err != nil {
@@ -131,8 +124,6 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *cacheData) {
 
 	_, err = conn.Write(pack)
 
-	log.Println("sended packet")
-	// spew.Dump(pack)
 	if err != nil {
 		panic(err)
 	}
@@ -168,84 +159,6 @@ func doAES256IGEencrypt(data, key, iv []byte) ([]byte, error) {
 	}
 
 	return encrypted, nil
-}
-
-type AES256IGECryptor struct {
-	aesKey []byte
-	aesIV  []byte
-}
-
-func NewAES256IGECryptor(aesKey, aesIV []byte) *AES256IGECryptor {
-	// TODO(@benqi): Check aesKey and aesIV valid.
-	return &AES256IGECryptor{
-		aesKey: aesKey,
-		aesIV:  aesIV,
-	}
-}
-
-// data长度必须是aes.BlockSize(16)的倍数，如果不是请调用者补齐
-func (c *AES256IGECryptor) Encrypt(data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.aesKey)
-	if err != nil {
-		return nil, err
-	}
-	if len(data) < aes.BlockSize {
-		return nil, errors.New("AES256IGE: data too small to encrypt")
-	}
-	if len(data)%aes.BlockSize != 0 {
-		return nil, errors.New("AES256IGE: data not divisible by block size")
-	}
-
-	t := make([]byte, aes.BlockSize)
-	x := make([]byte, aes.BlockSize)
-	y := make([]byte, aes.BlockSize)
-	copy(x, c.aesIV[:aes.BlockSize])
-	copy(y, c.aesIV[aes.BlockSize:])
-	encrypted := make([]byte, len(data))
-
-	i := 0
-	for i < len(data) {
-		xor(x, data[i:i+aes.BlockSize])
-		block.Encrypt(t, x)
-		xor(t, y)
-		x, y = t, data[i:i+aes.BlockSize]
-		copy(encrypted[i:], t)
-		i += aes.BlockSize
-	}
-
-	return encrypted, nil
-}
-
-func (c *AES256IGECryptor) Decrypt(data []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.aesKey)
-	if err != nil {
-		return nil, err
-	}
-	if len(data) < aes.BlockSize {
-		return nil, errors.New("AES256IGE: data too small to decrypt")
-	}
-	if len(data)%aes.BlockSize != 0 {
-		return nil, errors.New("AES256IGE: data not divisible by block size")
-	}
-
-	t := make([]byte, aes.BlockSize)
-	x := make([]byte, aes.BlockSize)
-	y := make([]byte, aes.BlockSize)
-	copy(x, c.aesIV[:aes.BlockSize])
-	copy(y, c.aesIV[aes.BlockSize:])
-	decrypted := make([]byte, len(data))
-
-	i := 0
-	for i < len(data) {
-		xor(y, data[i:i+aes.BlockSize])
-		block.Decrypt(t, y)
-		xor(t, x)
-		y, x = t, data[i:i+aes.BlockSize]
-		copy(decrypted[i:], t)
-		i += aes.BlockSize
-	}
-
-	return decrypted, nil
 }
 
 func xor(dst, src []byte) {
