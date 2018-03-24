@@ -9,11 +9,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-type cacheData struct {
-	Nonce       []byte
-	ServerNonce []byte
-}
-
 func HandleConnection(conn net.Conn) error {
 	fmt.Println("Handling new connection...")
 
@@ -23,10 +18,10 @@ func HandleConnection(conn net.Conn) error {
 		conn.Close()
 	}()
 
-	conCacheData := &cacheData{}
+	conCacheData := &mtproto.CacheData{}
 
 	for {
-		data, err := mtproto.ReadData(conn)
+		data, err := mtproto.ReadData(conn, conCacheData)
 
 		if err != nil {
 			panic(err)
@@ -37,6 +32,8 @@ func HandleConnection(conn net.Conn) error {
 			handlerReqPQ(data, conn, conCacheData)
 		case mtproto.TL_req_DH_params:
 			handlerReqDHParams(data, conn, conCacheData)
+		case mtproto.TL_set_client_DH_params:
+			handlerSetClientDHParams(data, conn, conCacheData)
 
 		default:
 			spew.Dump(data)

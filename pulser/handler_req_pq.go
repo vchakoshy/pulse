@@ -9,7 +9,7 @@ import (
 	"pulse/pulser/mtproto"
 )
 
-func handlerReqPQ(data interface{}, conn net.Conn, cd *cacheData) {
+func handlerReqPQ(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
 	rsaKey := getRsaKey()
 	log.Println(rsaKey.PublicSha1)
 
@@ -41,12 +41,6 @@ func handlerReqPQ(data interface{}, conn net.Conn, cd *cacheData) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func generateNonce(size int) []byte {
-	b := make([]byte, size)
-	_, _ = rand.Read(b)
-	return b
 }
 
 func calculatePq() *big.Int {

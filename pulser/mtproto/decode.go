@@ -303,6 +303,16 @@ func (m *DecodeBuf) Object() (r TL) {
 
 	switch constructor {
 
+	case crc_set_client_DH_params:
+		r = TL_set_client_DH_params{m.Bytes(16), m.Bytes(16), m.StringBytes()}
+	case crc_client_DH_inner_data:
+		r = TL_client_DH_inner_data{
+			m.Bytes(16),
+			m.Bytes(16),
+			m.Long(),
+			m.BigInt(),
+		}
+
 	case crc_req_DH_params:
 		r = TL_req_DH_params{
 			m.Bytes(16),

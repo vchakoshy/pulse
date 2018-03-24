@@ -383,7 +383,7 @@ func (m *MTProto) makeAuthKey() error {
 	return nil
 }
 
-func ReadData(conn net.Conn) (interface{}, error) {
+func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 	var err error
 	var n int
 	var size int
@@ -402,11 +402,9 @@ func ReadData(conn net.Conn) (interface{}, error) {
 		log.Println(err.Error())
 		return nil, err
 	}
-	log.Println("here2")
 
 	if b[0] == 0xef {
 		log.Println(b)
-		// conn.Write([]byte("h12312"))
 		return nil, nil
 	}
 
@@ -441,7 +439,6 @@ func ReadData(conn net.Conn) (interface{}, error) {
 
 	authKeyHash := dbuf.Bytes(8)
 	if binary.LittleEndian.Uint64(authKeyHash) == 0 {
-		log.Println("here5 ")
 		msgId = dbuf.Long()
 		messageLen := dbuf.Int()
 		if int(messageLen) != dbuf.size-20 {
@@ -455,31 +452,35 @@ func ReadData(conn net.Conn) (interface{}, error) {
 		}
 
 	} else {
-		log.Println("here5A ")
-		// msgKey := dbuf.Bytes(16)
-		// encryptedData := dbuf.Bytes(dbuf.size - 24)
-		// aesKey, aesIV := generateAES(msgKey, m.authKey, true)
-		// x, err := doAES256IGEdecrypt(encryptedData, aesKey, aesIV)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		// dbuf = NewDecodeBuf(x)
-		// _ = dbuf.Long() // salt
-		// _ = dbuf.Long() // session_id
-		// m.msgId = dbuf.Long()
-		// m.seqNo = dbuf.Int()
-		// messageLen := dbuf.Int()
-		// if int(messageLen) > dbuf.size-32 {
-		// 	return nil, fmt.Errorf("Message len: %d (need less than %d)", messageLen, dbuf.size-32)
-		// }
-		// if !bytes.Equal(sha1(dbuf.buf[0 : 32+messageLen])[4:20], msgKey) {
-		// 	return nil, errors.New("Wrong msg_key")
-		// }
+		log.Println("with auth key")
+		msgKey := dbuf.Bytes(16)
+		encryptedData := dbuf.Bytes(dbuf.size - 24)
+		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, true)
+		x, err := doAES256IGEdecrypt(encryptedData, aesKey, aesIV)
+		if err != nil {
+			return nil, err
+		}
+		dbuf = NewDecodeBuf(x)
 
-		// data = dbuf.Object()
-		// if dbuf.err != nil {
-		// 	return nil, dbuf.err
-		// }
+		_ = dbuf.Long() // salt
+		_ = dbuf.Long() // session_id
+		msgId := dbuf.Long()
+		log.Println("msgid:", msgId)
+		seqNo := dbuf.Int()
+		log.Println("seq no:", seqNo)
+		messageLen := dbuf.Int()
+		log.Println("msg len", messageLen)
+		if int(messageLen) > dbuf.size-32 {
+			return nil, fmt.Errorf("Message len: %d (need less than %d)", messageLen, dbuf.size-32)
+		}
+		if !bytes.Equal(sha1(dbuf.buf[0 : 32+messageLen])[4:20], msgKey) {
+			return nil, errors.New("Wrong msg_key")
+		}
+
+		data = dbuf.Object()
+		if dbuf.err != nil {
+			return nil, dbuf.err
+		}
 
 	}
 	log.Println(msgId)

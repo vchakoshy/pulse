@@ -170,7 +170,14 @@ func (e TL_server_DH_inner_data) encode() []byte {
 
 	return x.buf
 }
-func (e TL_dh_gen_ok) encode() []byte            { return nil }
+func (e TL_dh_gen_ok) encode() []byte {
+	x := NewEncodeBuf(512)
+	x.UInt(crc_dh_gen_ok)
+	x.Bytes(e.Nonce)
+	x.Bytes(e.Server_nonce)
+	x.Bytes(e.New_nonce_hash1)
+	return x.buf
+}
 func (e TL_rpc_result) encode() []byte           { return nil }
 func (e TL_rpc_error) encode() []byte            { return nil }
 func (e TL_new_session_created) encode() []byte  { return nil }
