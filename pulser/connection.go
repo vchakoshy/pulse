@@ -12,7 +12,6 @@ import (
 func HandleConnection(conn net.Conn) error {
 	fmt.Println("Handling new connection...")
 
-	// Close connection when this function ends
 	defer func() {
 		fmt.Println("Closing connection...")
 		conn.Close()

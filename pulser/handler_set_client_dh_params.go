@@ -14,16 +14,16 @@ func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.Cache
 
 	bEncryptedData := rMsg.Encdata
 
-	tmp_aes_key_and_iv := make([]byte, 64)
-	sha1_a := sha1.Sum(append(cd.NewNonce, cd.ServerNonce...))
-	sha1_b := sha1.Sum(append(cd.ServerNonce, cd.NewNonce...))
-	sha1_c := sha1.Sum(append(cd.NewNonce, cd.NewNonce...))
-	copy(tmp_aes_key_and_iv, sha1_a[:])
-	copy(tmp_aes_key_and_iv[20:], sha1_b[:])
-	copy(tmp_aes_key_and_iv[40:], sha1_c[:])
-	copy(tmp_aes_key_and_iv[60:], cd.NewNonce[:4])
+	tmpAesKeyIv := make([]byte, 64)
+	sha1A := sha1.Sum(append(cd.NewNonce, cd.ServerNonce...))
+	sha1B := sha1.Sum(append(cd.ServerNonce, cd.NewNonce...))
+	sha1C := sha1.Sum(append(cd.NewNonce, cd.NewNonce...))
+	copy(tmpAesKeyIv, sha1A[:])
+	copy(tmpAesKeyIv[20:], sha1B[:])
+	copy(tmpAesKeyIv[40:], sha1C[:])
+	copy(tmpAesKeyIv[60:], cd.NewNonce[:4])
 
-	decryptedData, err := doAES256IGEdecrypt(bEncryptedData, tmp_aes_key_and_iv[:32], tmp_aes_key_and_iv[32:64])
+	decryptedData, err := doAES256IGEdecrypt(bEncryptedData, tmpAesKeyIv[:32], tmpAesKeyIv[32:64])
 
 	if err != nil {
 		log.Println(err.Error())
@@ -71,5 +71,7 @@ func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.Cache
 	if err != nil {
 		panic(err)
 	}
+
+	// TODO: store auth key
 
 }

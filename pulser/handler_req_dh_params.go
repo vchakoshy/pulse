@@ -8,16 +8,11 @@ import (
 	"net"
 	"pulse/pulser/mtproto"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func handlerReqDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
-	log.Println("handler req dh params")
 	rMsg := data.(mtproto.TL_req_DH_params)
-	spew.Dump(rMsg)
 	decMsg := doRSAdecrypt(rMsg.Encdata)
-	spew.Dump(decMsg)
 
 	// TODO: check sha1 of inner data
 	decBuf := mtproto.NewDecodeBuf(decMsg[20:])
@@ -29,39 +24,33 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) 
 	cd.NewNonce = newNonce
 
 	bigIntDH2048P := new(big.Int).SetBytes(dh2048_p)
-	// bigIntDH2048G := new(big.Int).SetBytes(dh2048_g)
 
 	cd.A = new(big.Int).SetBytes(generateNonce(256))
-	// cd.A = bigIntA
 
 	gs := []int{3, 4, 7}
-	g := int32(gs[mathrand.Intn(3)])
+	cd.G = int32(gs[mathrand.Intn(3)])
 
-	cd.G = g
-
-	gA := new(big.Int).Exp(big.NewInt(int64(cd.G)), cd.A, bigIntDH2048P)
-
-	cd.GA = gA
+	cd.GA = new(big.Int).Exp(big.NewInt(int64(cd.G)), cd.A, bigIntDH2048P)
 
 	ed := mtproto.TL_server_DH_inner_data{
 		Nonce:        cd.Nonce,
 		Server_nonce: cd.ServerNonce,
-		G:            g,
+		G:            cd.G,
 		Dh_prime:     new(big.Int).SetBytes(dh2048_p),
-		G_a:          gA,
+		G_a:          cd.GA,
 		Server_time:  int32(time.Now().Unix()),
 	}
 
 	innerP := mtproto.EncodeTL(ed)
 
-	tmpAesKeyAndIv := make([]byte, 64)
+	tmpAesKeyIv := make([]byte, 64)
 	sha1A := sha1.Sum(append(newNonce, cd.ServerNonce...))
 	sha1B := sha1.Sum(append(cd.ServerNonce, newNonce...))
 	sha1C := sha1.Sum(append(newNonce, newNonce...))
-	copy(tmpAesKeyAndIv, sha1A[:])
-	copy(tmpAesKeyAndIv[20:], sha1B[:])
-	copy(tmpAesKeyAndIv[40:], sha1C[:])
-	copy(tmpAesKeyAndIv[60:], newNonce[:4])
+	copy(tmpAesKeyIv, sha1A[:])
+	copy(tmpAesKeyIv[20:], sha1B[:])
+	copy(tmpAesKeyIv[40:], sha1C[:])
+	copy(tmpAesKeyIv[60:], newNonce[:4])
 
 	tmpLen := 20 + len(innerP)
 	if tmpLen%16 > 0 {
@@ -75,12 +64,9 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) 
 	copy(tmpEncryptedAnswer, sha1Tmp[:])
 	copy(tmpEncryptedAnswer[20:], innerP)
 
-	log.Println("aes key: ", tmpAesKeyAndIv[:32])
-	log.Println("aes iv: ", tmpAesKeyAndIv[32:64])
-
-	aesKey := tmpAesKeyAndIv[:32]
+	aesKey := tmpAesKeyIv[:32]
 	cd.TmpAESKey = aesKey
-	aesIV := tmpAesKeyAndIv[32:64]
+	aesIV := tmpAesKeyIv[32:64]
 	cd.TmpAESIV = aesIV
 
 	encryptedAnswer, err := doAES256IGEencrypt(tmpEncryptedAnswer, aesKey, aesIV)
