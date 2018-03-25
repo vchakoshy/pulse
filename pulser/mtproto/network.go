@@ -452,10 +452,10 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 		}
 
 	} else {
-		log.Println("with auth key")
 		msgKey := dbuf.Bytes(16)
 		encryptedData := dbuf.Bytes(dbuf.size - 24)
-		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, true)
+		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, false)
+
 		x, err := doAES256IGEdecrypt(encryptedData, aesKey, aesIV)
 		if err != nil {
 			return nil, err

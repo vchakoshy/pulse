@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("listen at: 127.0.0.1:8888")
 	listener, err := net.Listen("tcp", ":8888")
 	if err != nil {
