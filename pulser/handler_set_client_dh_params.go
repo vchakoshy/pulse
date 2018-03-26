@@ -53,6 +53,10 @@ func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.Cache
 	t4[32] = 1
 	copy(t4[33:], mySha1(authKey.Bytes())[0:8])
 
+	cd.ServerSalt = make([]byte, 8)
+	copy(cd.ServerSalt, cd.NewNonce[:8])
+	xor(cd.ServerSalt, cd.ServerNonce[:8])
+
 	nonceHash1 := mySha1(t4)[4:20]
 
 	tlok := mtproto.TL_dh_gen_ok{
@@ -65,6 +69,8 @@ func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.Cache
 	if err != nil {
 		panic(err)
 	}
+
+	cd.Encrypted = true
 
 	_, err = conn.Write(pack)
 

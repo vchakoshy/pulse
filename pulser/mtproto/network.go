@@ -387,7 +387,7 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 	var err error
 	var n int
 	var size int
-	var msgId int64
+	// var msgId int64
 	var data interface{}
 
 	err = conn.SetReadDeadline(time.Now().Add(readDeadLine * time.Second))
@@ -439,12 +439,12 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 
 	authKeyHash := dbuf.Bytes(8)
 	if binary.LittleEndian.Uint64(authKeyHash) == 0 {
-		msgId = dbuf.Long()
+		cd.MsgID = dbuf.Long()
 		messageLen := dbuf.Int()
 		if int(messageLen) != dbuf.size-20 {
 			return nil, fmt.Errorf("Message len: %d (need %d)", messageLen, dbuf.size-20)
 		}
-		// seqNo := 0
+		cd.SeqNo = 0
 
 		data = dbuf.Object()
 		if dbuf.err != nil {
@@ -462,12 +462,12 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 		}
 		dbuf = NewDecodeBuf(x)
 
-		_ = dbuf.Long() // salt
-		_ = dbuf.Long() // session_id
-		msgId := dbuf.Long()
-		log.Println("msgid:", msgId)
-		seqNo := dbuf.Int()
-		log.Println("seq no:", seqNo)
+		_ = dbuf.Long()            // salt
+		cd.SessionID = dbuf.Long() // session_id
+		cd.MsgID = dbuf.Long()
+		log.Println("msgid:", cd.MsgID)
+		cd.SeqNo = dbuf.Int()
+		log.Println("seq no:", cd.SeqNo)
 		messageLen := dbuf.Int()
 		log.Println("msg len", messageLen)
 		if int(messageLen) > dbuf.size-32 {
@@ -483,7 +483,7 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 		}
 
 	}
-	log.Println(msgId)
+	log.Println(cd.MsgID)
 	// mod := m.msgId & 3
 	// if mod != 1 && mod != 3 {
 	// 	return nil, fmt.Errorf("Wrong bits of message_id: %d", mod)
@@ -494,6 +494,12 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 
 func EncodeTL(msg TL) []byte {
 	obj := msg.encode()
+	return obj
+}
+
+func EncodeInterface(msg interface{}) []byte {
+	msgTl := msg.(TL)
+	obj := msgTl.encode()
 	return obj
 }
 
@@ -527,4 +533,70 @@ func MakePacket(msg TL) ([]byte, error) {
 	// log.Println("b,", x.buf[0])
 
 	return x.buf, nil
+}
+
+func MakingPacket(msg TL, cd *CacheData) ([]byte, error) {
+	log.Println("making packet ", msg)
+	obj := msg.encode()
+	log.Println("data of packet")
+	spew.Dump(obj)
+	x := NewEncodeBuf(256)
+
+	// padding for tcpsize
+	x.Int(0)
+
+	if cd.Encrypted {
+		needAck := true
+		switch msg.(type) {
+		case TL_ping, TL_msgs_ack:
+			needAck = false
+		}
+		z := NewEncodeBuf(256)
+		newMsgId := GenerateMessageId()
+		z.Bytes(cd.ServerSalt)
+		z.Long(cd.SessionID)
+		z.Long(newMsgId)
+		if needAck {
+			z.Int(cd.SeqNo | 1)
+		} else {
+			z.Int(cd.SeqNo)
+		}
+		z.Int(int32(len(obj)))
+		z.Bytes(obj)
+
+		msgKey := sha1(z.buf)[4:20]
+		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, false)
+
+		y := make([]byte, len(z.buf)+((16-(len(obj)%16))&15))
+		copy(y, z.buf)
+		encryptedData, err := doAES256IGEencrypt(y, aesKey, aesIV)
+		if err != nil {
+			return nil, err
+		}
+
+		cd.SeqNo += 2
+
+		x.Bytes(cd.AuthKeyHash)
+		x.Bytes(msgKey)
+		x.Bytes(encryptedData)
+
+	} else {
+		x.Long(0)
+		x.Long(GenerateMessageId())
+		x.Int(int32(len(obj)))
+		x.Bytes(obj)
+	}
+
+	// minus padding
+	size := len(x.buf)/4 - 1
+
+	if size < 127 {
+		x.buf[3] = byte(size)
+		x.buf = x.buf[3:]
+	} else {
+		binary.LittleEndian.PutUint32(x.buf, uint32(size<<8|127))
+	}
+
+	return x.buf, nil
+
 }

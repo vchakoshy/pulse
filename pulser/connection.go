@@ -28,13 +28,13 @@ func HandleConnection(conn net.Conn) error {
 
 		switch data.(type) {
 		case mtproto.TL_req_pq:
-			handlerReqPQ(data, conn, conCacheData)
+			go handlerReqPQ(data, conn, conCacheData)
 		case mtproto.TL_req_DH_params:
-			handlerReqDHParams(data, conn, conCacheData)
+			go handlerReqDHParams(data, conn, conCacheData)
 		case mtproto.TL_set_client_DH_params:
-			handlerSetClientDHParams(data, conn, conCacheData)
+			go handlerSetClientDHParams(data, conn, conCacheData)
 		case mtproto.TL_invokeWithLayer:
-			handlerinvokeWithLayer(data, conn, conCacheData)
+			go handlerinvokeWithLayer(data, conn, conCacheData)
 
 		default:
 			spew.Dump(data)

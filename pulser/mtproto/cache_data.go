@@ -14,4 +14,9 @@ type CacheData struct {
 	GA          *big.Int
 	G           int32
 	A           *big.Int
+	MsgID       int64
+	SeqNo       int32
+	ServerSalt  []byte
+	SessionID   int64
+	Encrypted   bool
 }
