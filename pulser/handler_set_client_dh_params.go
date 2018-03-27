@@ -48,6 +48,8 @@ func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.Cache
 
 	cd.AuthKey = authKey.Bytes()
 
+	cd.AuthKeyHash = mySha1(cd.AuthKey)[12:20]
+
 	t4 := make([]byte, 32+1+8)
 	copy(t4[0:], cd.NewNonce)
 	t4[32] = 1

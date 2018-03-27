@@ -140,9 +140,10 @@ func (e TL_MT_message) encode() []byte {
 	x := NewEncodeBuf(512)
 	x.Long(e.Msg_id)
 	x.Int(e.Seq_no)
-	de := e.Data.encode()
-	x.Int(int32(len(de)))
-	x.StringBytes(de)
+	x.Int(e.Size)
+	x.Int(e.Seq_no)
+	x.StringBytes(e.Data.encode())
+
 	return x.buf
 }
 

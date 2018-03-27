@@ -8,8 +8,6 @@ import (
 	"log"
 	"net"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func (m *MTProto) SendPacket(msg TL, resp chan response) error {
@@ -435,7 +433,7 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 	}
 
 	dbuf := NewDecodeBuf(buf)
-	spew.Dump(buf)
+	// spew.Dump(buf)
 
 	authKeyHash := dbuf.Bytes(8)
 	if binary.LittleEndian.Uint64(authKeyHash) == 0 {
@@ -539,7 +537,7 @@ func MakingPacket(msg TL, cd *CacheData) ([]byte, error) {
 	log.Println("making packet ", msg)
 	obj := msg.encode()
 	log.Println("data of packet")
-	spew.Dump(obj)
+	// spew.Dump(obj)
 	x := NewEncodeBuf(256)
 
 	// padding for tcpsize
@@ -553,6 +551,7 @@ func MakingPacket(msg TL, cd *CacheData) ([]byte, error) {
 		}
 		z := NewEncodeBuf(256)
 		newMsgId := GenerateMessageId()
+
 		z.Bytes(cd.ServerSalt)
 		z.Long(cd.SessionID)
 		z.Long(newMsgId)
