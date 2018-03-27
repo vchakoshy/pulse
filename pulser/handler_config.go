@@ -3,6 +3,8 @@ package pulser
 import (
 	"net"
 	"pulse/pulser/mtproto"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 func handlerinvokeWithLayer(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
@@ -63,6 +65,7 @@ func handlerinvokeWithLayer(data interface{}, conn net.Conn, cd *mtproto.CacheDa
 	// log.Println(cd.MsgID)
 
 	pack, err := mtproto.MakingPacket(tlmsgCon, cd)
+	spew.Dump(pack)
 	if err != nil {
 		panic(err)
 	}

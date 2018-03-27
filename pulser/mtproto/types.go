@@ -18,7 +18,7 @@ type TL_MT_message struct {
 	Msg_id int64
 	Seq_no int32
 	Size   int32
-	Data   interface{}
+	Data   TL
 }
 
 const crc_req_pq = 0x60469778

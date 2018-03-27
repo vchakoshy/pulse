@@ -136,21 +136,24 @@ func (e *EncodeBuf) Vector(v []TL) {
 	}
 }
 
+func (e TL_MT_message) encode() []byte {
+	x := NewEncodeBuf(512)
+	x.Long(e.Msg_id)
+	x.Int(e.Seq_no)
+	de := e.Data.encode()
+	x.Int(int32(len(de)))
+	x.StringBytes(de)
+	return x.buf
+}
+
 // TODO: Does only server send messages below?
 func (e TL_msg_container) encode() []byte {
 	x := NewEncodeBuf(512)
 	x.UInt(crc_msg_container)
 	x.Int(int32(len(e.Items)))
 
-	_ = TL_MT_message{}
-
 	for _, m := range e.Items {
-		x.Long(m.Msg_id)
-		x.Int(m.Seq_no)
-		x.Int(m.Size)
-
-		bdata := EncodeInterface(m.Data)
-		x.Bytes(bdata)
+		x.Bytes(m.encode())
 	}
 
 	return x.buf
@@ -197,6 +200,7 @@ func (e TL_dh_gen_ok) encode() []byte {
 }
 func (e TL_rpc_result) encode() []byte { return nil }
 func (e TL_rpc_error) encode() []byte  { return nil }
+
 func (e TL_new_session_created) encode() []byte {
 	x := NewEncodeBuf(512)
 	x.UInt(crc_new_session_created)
@@ -206,6 +210,7 @@ func (e TL_new_session_created) encode() []byte {
 
 	return x.buf
 }
+
 func (e TL_bad_server_salt) encode() []byte      { return nil }
 func (e TL_bad_msg_notification) encode() []byte { return nil }
 
