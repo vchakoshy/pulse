@@ -132,6 +132,10 @@ func makeGAB(g int32, g_a, dh_prime *big.Int) (b, g_b, g_ab *big.Int) {
 	return
 }
 
+func GenerateAES(msg_key, auth_key []byte, decode bool) ([]byte, []byte) {
+	return generateAES(msg_key, auth_key, decode)
+}
+
 func generateAES(msg_key, auth_key []byte, decode bool) ([]byte, []byte) {
 	var x int
 	if decode {
@@ -176,6 +180,10 @@ func generateAES(msg_key, auth_key []byte, decode bool) ([]byte, []byte) {
 	return aes_key, aes_iv
 }
 
+func DoAES256IGEencrypt(data, key, iv []byte) ([]byte, error) {
+	return doAES256IGEencrypt(data, key, iv)
+}
+
 func doAES256IGEencrypt(data, key, iv []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -206,6 +214,10 @@ func doAES256IGEencrypt(data, key, iv []byte) ([]byte, error) {
 	}
 
 	return encrypted, nil
+}
+
+func DoAES256IGEdecrypt(data, key, iv []byte) ([]byte, error) {
+	return doAES256IGEdecrypt(data, key, iv)
 }
 
 func doAES256IGEdecrypt(data, key, iv []byte) ([]byte, error) {

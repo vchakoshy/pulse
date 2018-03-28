@@ -29,7 +29,6 @@ func handlerReqDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) 
 
 	gs := []int{3, 4, 7}
 	cd.G = int32(gs[mathrand.Intn(3)])
-
 	cd.GA = new(big.Int).Exp(big.NewInt(int64(cd.G)), cd.A, bigIntDH2048P)
 
 	ed := mtproto.TL_server_DH_inner_data{
