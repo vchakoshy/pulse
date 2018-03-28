@@ -199,8 +199,17 @@ func (e TL_dh_gen_ok) encode() []byte {
 	x.Bytes(e.New_nonce_hash1)
 	return x.buf
 }
-func (e TL_rpc_result) encode() []byte { return nil }
-func (e TL_rpc_error) encode() []byte  { return nil }
+
+func (e TL_rpc_result) encode() []byte {
+	x := NewEncodeBuf(1024)
+	x.UInt(crc_rpc_result)
+	x.Long(e.Req_msg_id)
+	x.Bytes(EncodeInterface(e.Obj))
+
+	return x.buf
+}
+
+func (e TL_rpc_error) encode() []byte { return nil }
 
 func (e TL_new_session_created) encode() []byte {
 	log.Println("encode TL_new_session_created")

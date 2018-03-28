@@ -35,6 +35,8 @@ func HandleConnection(conn net.Conn) error {
 			go handlerSetClientDHParams(data, conn, conCacheData)
 		case mtproto.TL_invokeWithLayer:
 			go handlerinvokeWithLayer(data, conn, conCacheData)
+		case mtproto.TL_msgs_ack:
+			go handlerMsgsAck(data, conn, conCacheData)
 
 		default:
 			spew.Dump(data)

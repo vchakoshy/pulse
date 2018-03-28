@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"reflect"
 	"time"
 )
 
@@ -534,7 +535,7 @@ func MakePacket(msg TL) ([]byte, error) {
 }
 
 func MakingPacket(msg TL, cd *CacheData) ([]byte, error) {
-	log.Println("making packet ", msg)
+	log.Println("making packet ", msg, reflect.TypeOf(msg))
 	obj := msg.encode()
 	log.Println("data of packet")
 	// spew.Dump(obj)
