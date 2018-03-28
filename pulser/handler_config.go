@@ -60,17 +60,14 @@ func handlerinvokeWithLayer(data interface{}, conn net.Conn, cd *mtproto.CacheDa
 	tlmsgCon.Items = append(tlmsgCon.Items, nsMtMsg)
 	tlmsgCon.Items = append(tlmsgCon.Items, msgAck)
 
-	// d := data.(mtproto.TL_invokeWithLayer)
-	// spew.Dump(d)
-	// log.Println(cd.MsgID)
-
 	pack, err := mtproto.MakingPacket(tlmsgCon, cd)
-	spew.Dump(pack)
 	if err != nil {
 		panic(err)
 	}
+	spew.Dump(tlmsgCon)
 
 	_, err = conn.Write(pack)
+	spew.Dump(pack)
 	if err != nil {
 		panic(err)
 	}

@@ -564,10 +564,11 @@ func MakingPacket(msg TL, cd *CacheData) ([]byte, error) {
 		z.Bytes(obj)
 
 		msgKey := sha1(z.buf)[4:20]
-		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, false)
+		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, true)
 
 		y := make([]byte, len(z.buf)+((16-(len(obj)%16))&15))
 		copy(y, z.buf)
+
 		encryptedData, err := doAES256IGEencrypt(y, aesKey, aesIV)
 		if err != nil {
 			return nil, err

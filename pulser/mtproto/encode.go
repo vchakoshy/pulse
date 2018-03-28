@@ -141,8 +141,7 @@ func (e TL_MT_message) encode() []byte {
 	x.Long(e.Msg_id)
 	x.Int(e.Seq_no)
 	x.Int(e.Size)
-	x.Int(e.Seq_no)
-	x.StringBytes(e.Data.encode())
+	x.Bytes(e.Data.encode())
 
 	return x.buf
 }
@@ -154,6 +153,7 @@ func (e TL_msg_container) encode() []byte {
 	x.Int(int32(len(e.Items)))
 
 	for _, m := range e.Items {
+		// log.Println("data type:", reflect.TypeOf(m.Data))
 		x.Bytes(m.encode())
 	}
 
@@ -203,6 +203,7 @@ func (e TL_rpc_result) encode() []byte { return nil }
 func (e TL_rpc_error) encode() []byte  { return nil }
 
 func (e TL_new_session_created) encode() []byte {
+	log.Println("encode TL_new_session_created")
 	x := NewEncodeBuf(512)
 	x.UInt(crc_new_session_created)
 	x.Long(e.First_msg_id)
