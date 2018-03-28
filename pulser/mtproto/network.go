@@ -491,6 +491,103 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 	return data, nil
 }
 
+func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
+	// var err error
+	// var n int
+	var size int
+	// var msgId int64
+	var data interface{}
+
+	if rData[0] == 0xef {
+		return nil, nil
+	}
+
+	if rData[0] < 127 {
+		size = int(rData[0]) << 2
+	} else {
+		// b := make([]byte, 3)
+		b := rData[1:4]
+		// n, err = conn.Read(b)
+		// if err != nil {
+		// 	return nil, err
+		// }
+		size = (int(b[0]) | int(b[1])<<8 | int(b[2])<<16) << 2
+	}
+
+	// left := size
+	// buf := make([]byte, size)
+	buf := rData //rData[size-len(rData):]
+
+	// for left > 0 {
+	// 	n, err = conn.Read(buf[size-left:])
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	left -= n
+	// }
+
+	if size == 4 {
+		return nil, fmt.Errorf("Server response error: %d", int32(binary.LittleEndian.Uint32(buf)))
+	}
+
+	dbuf := NewDecodeBuf(buf)
+	// spew.Dump(buf)
+
+	authKeyHash := dbuf.Bytes(8)
+	if binary.LittleEndian.Uint64(authKeyHash) == 0 {
+		cd.MsgID = dbuf.Long()
+		messageLen := dbuf.Int()
+		if int(messageLen) != dbuf.size-20 {
+			return nil, fmt.Errorf("Message len: %d (need %d)", messageLen, dbuf.size-20)
+		}
+		cd.SeqNo = 0
+
+		data = dbuf.Object()
+		if dbuf.err != nil {
+			return nil, dbuf.err
+		}
+
+	} else {
+		msgKey := dbuf.Bytes(16)
+		encryptedData := dbuf.Bytes(dbuf.size - 24)
+		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, false)
+
+		x, err := doAES256IGEdecrypt(encryptedData, aesKey, aesIV)
+		if err != nil {
+			return nil, err
+		}
+		dbuf = NewDecodeBuf(x)
+
+		_ = dbuf.Long()            // salt
+		cd.SessionID = dbuf.Long() // session_id
+		cd.MsgID = dbuf.Long()
+		log.Println("msgid:", cd.MsgID)
+		cd.SeqNo = dbuf.Int()
+		log.Println("seq no:", cd.SeqNo)
+		messageLen := dbuf.Int()
+		log.Println("msg len", messageLen)
+		if int(messageLen) > dbuf.size-32 {
+			return nil, fmt.Errorf("Message len: %d (need less than %d)", messageLen, dbuf.size-32)
+		}
+		if !bytes.Equal(sha1(dbuf.buf[0 : 32+messageLen])[4:20], msgKey) {
+			return nil, errors.New("Wrong msg_key")
+		}
+
+		data = dbuf.Object()
+		if dbuf.err != nil {
+			return nil, dbuf.err
+		}
+
+	}
+	log.Println(cd.MsgID)
+	// mod := m.msgId & 3
+	// if mod != 1 && mod != 3 {
+	// 	return nil, fmt.Errorf("Wrong bits of message_id: %d", mod)
+	// }
+
+	return data, nil
+}
+
 func EncodeTL(msg TL) []byte {
 	obj := msg.encode()
 	return obj

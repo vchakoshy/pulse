@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 )
 
 type myPrivateKey struct {
@@ -41,6 +42,9 @@ func getRsaKey() myPrivateKey {
 	}
 	log.Println(mpk.PrivateKey.N)
 	log.Println(mpk.PrivateKey.E)
+	log.Println("publik key bytes:", strings.Repeat("*", 10))
+	log.Printf("%x\n", mpk.PrivateKey.D.Bytes())
+
 	return mpk
 }
 

@@ -43,6 +43,37 @@ func handlerReqPQ(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
 	}
 }
 
+func HandlerHttpReqPQ(data interface{}, cd *mtproto.CacheData) []byte {
+	rsaKey := getRsaKey()
+
+	fp := make([]byte, 9)
+	for i := 0; i < 8; i++ {
+		fp[i] = rsaKey.PublicSha1[len(rsaKey.PublicSha1)-(8-i)]
+	}
+
+	fpEnd := binary.BigEndian.Uint64(fp)
+
+	recData := data.(mtproto.TL_req_pq)
+	serverNone := generateNonce(16)
+
+	tlResPQ := mtproto.TL_resPQ{
+		Nonce:        recData.Nonce,
+		Server_nonce: serverNone,
+		Pq:           calculatePq(),
+		Fingerprints: []int64{int64(fpEnd)},
+	}
+	pack, err := mtproto.MakePacket(tlResPQ)
+	if err != nil {
+		panic(err)
+	}
+
+	cd.Nonce = recData.Nonce
+	cd.ServerNonce = serverNone
+
+	return pack
+
+}
+
 func calculatePq() *big.Int {
 	var p, q *big.Int
 	a := getRandomPrime()
