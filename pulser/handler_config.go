@@ -109,3 +109,47 @@ func handlerinvokeWithLayer(data interface{}, conn net.Conn, cd *mtproto.CacheDa
 	}
 
 }
+
+func handlerHttpInvokeWithLayer(data mtproto.TL_invokeWithLayer, cd *mtproto.CacheData) []byte {
+
+	resultContainer := mtproto.TL_msg_container{}
+
+	cd.SeqNo++
+	newSessionCreated := mtproto.TL_MT_message{
+		Msg_id: mtproto.GenerateMessageId(),
+		Seq_no: cd.SeqNo,
+		Size:   28,
+		Data: mtproto.TL_new_session_created{
+			First_msg_id: cd.MsgID,
+			Unique_id:    8297134183777339944,
+			Server_salt:  cd.ServerSalt,
+		},
+	}
+	resultContainer.Items = append(resultContainer.Items, newSessionCreated)
+
+	cd.SeqNo += 2
+	dcConfig := mtproto.TL_MT_message{
+		Msg_id: mtproto.GenerateMessageId(),
+		Seq_no: cd.SeqNo,
+		Size:   28,
+
+		Data: mtproto.TL_rpc_result{
+			Req_msg_id: cd.ReqMsgID,
+			Obj: mtproto.TL_nearestDc{
+				Country:    "IR",
+				This_dc:    2,
+				Nearest_dc: 2,
+			},
+		},
+	}
+	resultContainer.Items = append(resultContainer.Items, dcConfig)
+
+	cd.SeqNo = 2
+
+	pack, err := mtproto.MakePacketHttp(resultContainer, cd)
+	if err != nil {
+		panic(err)
+	}
+	return pack
+
+}

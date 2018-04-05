@@ -2,59 +2,30 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"pulse/pulser"
 	"pulse/pulser/mtproto"
+)
 
-	"github.com/davecgh/go-spew/spew"
-	"github.com/rs/cors"
-
-	"github.com/julienschmidt/httprouter"
+var (
+	sessions = make(map[string]*mtproto.CacheData)
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	r := pulser.GetRsaKey()
+	log.Println(r.PrivateKey.E)
 	forever := make(chan bool)
 	// go tcpLsten()
 	httpListen()
 	<-forever
 }
 
-func Index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-
-	log.Println(w)
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading body: %v", err)
-		return
-	}
-
-	conCacheData := &mtproto.CacheData{}
-
-	data, err := mtproto.ReadHttpData(body, conCacheData)
-	if err != nil {
-		log.Println(err.Error())
-	}
-
-	spew.Dump(body)
-	spew.Dump(data)
-
-	pack := pulser.HandlerHttpReqPQ(data, conCacheData)
-	w.Write(pack)
-}
-
 func httpListen() {
-	router := httprouter.New()
-	router.GET("/apiw1", Index)
-	router.Handle("POST", "/apiw1", Index)
-
-	handler := cors.Default().Handler(router)
-
-	log.Fatal(http.ListenAndServe(":8889", handler))
+	http.HandleFunc("/apiw1", pulser.HandleHttpConnection)
+	http.ListenAndServe(":8889", nil)
 }
 
 func tcpLsten() {

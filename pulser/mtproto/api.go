@@ -15759,6 +15759,14 @@ func (e TL_phone_setCallRating) encode() []byte {
 	return x.buf
 }
 
+const crc_http_wait = 0x9299359f
+
+type TL_http_wait struct {
+	Max_delay  int32
+	Wait_after int32
+	Max_wait   int32
+}
+
 // phone.saveCallDebug#277add7e peer:InputPhoneCall debug:DataJSON = Bool;
 
 const crc_phone_saveCallDebug = 0x277add7e
@@ -21229,6 +21237,12 @@ func (m *DecodeBuf) ObjectGenerated(constructor uint32) (r TL) {
 		r = TL_phone_saveCallDebug{
 			Peer:  m.Object(),
 			Debug: m.Object(),
+		}
+	case crc_http_wait:
+		r = TL_http_wait{
+			Max_delay:  m.Int(),
+			Wait_after: m.Int(),
+			Max_wait:   m.Int(),
 		}
 	default:
 		log.Println("Unknown constructor")

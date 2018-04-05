@@ -200,6 +200,15 @@ func (e TL_dh_gen_ok) encode() []byte {
 	return x.buf
 }
 
+func (e TL_http_wait) encode() []byte {
+	x := NewEncodeBuf(512)
+	x.UInt(crc_http_wait)
+	x.Int(e.Max_delay)
+	x.Int(e.Wait_after)
+	x.Int(e.Max_wait)
+	return x.buf
+}
+
 func (e TL_rpc_result) encode() []byte {
 	x := NewEncodeBuf(1024)
 	x.UInt(crc_rpc_result)

@@ -14,12 +14,18 @@ import (
 	"strings"
 )
 
-type myPrivateKey struct {
+// MyPrivateKey struct
+type MyPrivateKey struct {
 	PublicSha1 string
 	PrivateKey rsa.PrivateKey
 }
 
-func getRsaKey() myPrivateKey {
+// GetRsaKey returns rsa private key
+func GetRsaKey() MyPrivateKey {
+	return getRsaKey()
+}
+
+func getRsaKey() MyPrivateKey {
 	rootDir := getRootDir()
 	pubkeyFile := path.Join(rootDir, "keys", "public.key")
 	privkeyFile := path.Join(rootDir, "keys", "private.key")
@@ -36,14 +42,19 @@ func getRsaKey() myPrivateKey {
 		saveGobKey(pubkeyFile, key.PublicKey)
 	}
 
-	mpk := myPrivateKey{
+	mpk := MyPrivateKey{
 		PrivateKey: getPrivateKey(),
 		PublicSha1: getPublicSha1(),
 	}
 	log.Println(mpk.PrivateKey.N)
 	log.Println(mpk.PrivateKey.E)
 	log.Println("publik key bytes:", strings.Repeat("*", 10))
+	log.Println("rsa key hex:")
 	log.Printf("%x\n", mpk.PrivateKey.D.Bytes())
+
+	log.Println("rsa public key hex:")
+	log.Printf("%x\n", mpk.PrivateKey.PublicKey.N.Bytes())
+	// log.Printf("%x\n", mpk.PrivateKey.PublicKey.E.Bytes())
 
 	return mpk
 }
@@ -86,6 +97,7 @@ func getPrivateKey() rsa.PrivateKey {
 	}
 
 	privatekeyfile.Close()
+
 	return privatekey
 
 }

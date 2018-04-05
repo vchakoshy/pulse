@@ -7,9 +7,13 @@ import (
 	"math/big"
 	"net"
 	"pulse/pulser/mtproto"
+	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 func handlerReqPQ(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
+
 	rsaKey := getRsaKey()
 	log.Println(rsaKey.PublicSha1)
 
@@ -43,8 +47,11 @@ func handlerReqPQ(data interface{}, conn net.Conn, cd *mtproto.CacheData) {
 	}
 }
 
-func HandlerHttpReqPQ(data interface{}, cd *mtproto.CacheData) []byte {
+func HandlerHttpReqPQ(data interface{}, sessions map[string]*mtproto.CacheData) []byte {
+	log.Println(strings.Repeat("*", 10))
 	rsaKey := getRsaKey()
+
+	log.Println("public key:", rsaKey.PublicSha1)
 
 	fp := make([]byte, 9)
 	for i := 0; i < 8; i++ {
@@ -62,13 +69,19 @@ func HandlerHttpReqPQ(data interface{}, cd *mtproto.CacheData) []byte {
 		Pq:           calculatePq(),
 		Fingerprints: []int64{int64(fpEnd)},
 	}
-	pack, err := mtproto.MakePacket(tlResPQ)
+	pack, err := mtproto.MakePacketHttp(tlResPQ, nil)
 	if err != nil {
 		panic(err)
 	}
 
+	cd := &mtproto.CacheData{}
+
 	cd.Nonce = recData.Nonce
 	cd.ServerNonce = serverNone
+
+	sessions[string(recData.Nonce)] = cd
+
+	spew.Dump(sessions)
 
 	return pack
 

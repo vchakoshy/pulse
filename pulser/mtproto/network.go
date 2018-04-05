@@ -3,12 +3,16 @@ package mtproto
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net"
 	"reflect"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	redis "gopkg.in/redis.v4"
 )
 
 func (m *MTProto) SendPacket(msg TL, resp chan response) error {
@@ -491,12 +495,14 @@ func ReadData(conn net.Conn, cd *CacheData) (interface{}, error) {
 	return data, nil
 }
 
-func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
-	// var err error
-	// var n int
+type HttpData struct {
+	Data      interface{}
+	CacheData CacheData
+}
+
+func ReadHttpData(rData []byte, sessions map[string]*CacheData) (*HttpData, error) {
 	var size int
-	// var msgId int64
-	var data interface{}
+	hData := new(HttpData)
 
 	if rData[0] == 0xef {
 		return nil, nil
@@ -505,26 +511,11 @@ func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
 	if rData[0] < 127 {
 		size = int(rData[0]) << 2
 	} else {
-		// b := make([]byte, 3)
 		b := rData[1:4]
-		// n, err = conn.Read(b)
-		// if err != nil {
-		// 	return nil, err
-		// }
 		size = (int(b[0]) | int(b[1])<<8 | int(b[2])<<16) << 2
 	}
 
-	// left := size
-	// buf := make([]byte, size)
-	buf := rData //rData[size-len(rData):]
-
-	// for left > 0 {
-	// 	n, err = conn.Read(buf[size-left:])
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	left -= n
-	// }
+	buf := rData
 
 	if size == 4 {
 		return nil, fmt.Errorf("Server response error: %d", int32(binary.LittleEndian.Uint32(buf)))
@@ -535,22 +526,32 @@ func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
 
 	authKeyHash := dbuf.Bytes(8)
 	if binary.LittleEndian.Uint64(authKeyHash) == 0 {
-		cd.MsgID = dbuf.Long()
+
+		_ = dbuf.Long()
 		messageLen := dbuf.Int()
 		if int(messageLen) != dbuf.size-20 {
 			return nil, fmt.Errorf("Message len: %d (need %d)", messageLen, dbuf.size-20)
 		}
-		cd.SeqNo = 0
+		_ = 0
 
-		data = dbuf.Object()
+		hData.Data = dbuf.Object()
 		if dbuf.err != nil {
 			return nil, dbuf.err
 		}
 
 	} else {
+		authKeySha1 := fmt.Sprintf("%x", sha1(authKeyHash))
+
+		rCon := getRedisClient()
+		b, _ := rCon.Get("authkey:" + authKeySha1).Bytes()
+		var cd CacheData
+		json.Unmarshal(b, &cd)
+		// hData.CacheData = cd
+
 		msgKey := dbuf.Bytes(16)
 		encryptedData := dbuf.Bytes(dbuf.size - 24)
-		aesKey, aesIV := generateAES(msgKey, cd.AuthKey, false)
+		authKeyByte := cd.AuthKey
+		aesKey, aesIV := generateAES(msgKey, authKeyByte, false)
 
 		x, err := doAES256IGEdecrypt(encryptedData, aesKey, aesIV)
 		if err != nil {
@@ -561,11 +562,11 @@ func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
 		_ = dbuf.Long()            // salt
 		cd.SessionID = dbuf.Long() // session_id
 		cd.MsgID = dbuf.Long()
-		log.Println("msgid:", cd.MsgID)
-		cd.SeqNo = dbuf.Int()
-		log.Println("seq no:", cd.SeqNo)
+		// log.Println("msgid:", cd.MsgID)
+		_ = dbuf.Int()
+		// log.Println("seq no:", cd.SeqNo)
 		messageLen := dbuf.Int()
-		log.Println("msg len", messageLen)
+		// log.Println("msg len", messageLen)
 		if int(messageLen) > dbuf.size-32 {
 			return nil, fmt.Errorf("Message len: %d (need less than %d)", messageLen, dbuf.size-32)
 		}
@@ -573,19 +574,30 @@ func ReadHttpData(rData []byte, cd *CacheData) (interface{}, error) {
 			return nil, errors.New("Wrong msg_key")
 		}
 
-		data = dbuf.Object()
+		hData.CacheData = cd
+
+		hData.Data = dbuf.Object()
 		if dbuf.err != nil {
 			return nil, dbuf.err
 		}
 
 	}
-	log.Println(cd.MsgID)
-	// mod := m.msgId & 3
-	// if mod != 1 && mod != 3 {
-	// 	return nil, fmt.Errorf("Wrong bits of message_id: %d", mod)
-	// }
 
-	return data, nil
+	return hData, nil
+}
+
+var redisClient *redis.Client
+
+func getRedisClient() *redis.Client {
+	if redisClient != nil {
+		return redisClient
+	}
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	return redisClient
 }
 
 func EncodeTL(msg TL) []byte {
@@ -627,6 +639,69 @@ func MakePacket(msg TL) ([]byte, error) {
 	}
 
 	// log.Println("b,", x.buf[0])
+
+	return x.buf, nil
+}
+
+func MakePacketHttp(msg TL, cd *CacheData) ([]byte, error) {
+	// log.Println("make packet ", msg)
+	obj := msg.encode()
+	x := NewEncodeBuf(256)
+
+	log.Println("make http packet")
+	spew.Dump(msg)
+
+	// padding for tcpsize
+	// x.Int(0)
+
+	if cd != nil {
+		if cd.Encrypted {
+			needAck := true
+			switch msg.(type) {
+			case TL_ping, TL_msgs_ack:
+				needAck = false
+			}
+			z := NewEncodeBuf(256)
+			newMsgId := GenerateMessageId()
+
+			z.Bytes(cd.ServerSalt)
+			z.Long(cd.SessionID)
+			z.Long(newMsgId)
+			if needAck {
+				z.Int(cd.SeqNo | 1)
+			} else {
+				z.Int(cd.SeqNo)
+			}
+			z.Int(int32(len(obj)))
+			z.Bytes(obj)
+
+			msgKey := sha1(z.buf)[4:20]
+			aesKey, aesIV := generateAES(msgKey, cd.AuthKey, true)
+
+			y := make([]byte, len(z.buf)+((16-(len(obj)%16))&15))
+			copy(y, z.buf)
+
+			encryptedData, err := doAES256IGEencrypt(y, aesKey, aesIV)
+			if err != nil {
+				return nil, err
+			}
+
+			cd.SeqNo += 2
+
+			x.Bytes(cd.AuthKeyHash)
+			x.Bytes(msgKey)
+			x.Bytes(encryptedData)
+
+		}
+	} else {
+
+		x.Long(0)
+		msgID := GenerateMessageId()
+		log.Println("message id:", msgID)
+		x.Long(msgID)
+		x.Int(int32(len(obj)))
+		x.Bytes(obj)
+	}
 
 	return x.buf, nil
 }

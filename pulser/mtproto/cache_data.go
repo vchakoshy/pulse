@@ -19,4 +19,5 @@ type CacheData struct {
 	ServerSalt  []byte
 	SessionID   int64
 	Encrypted   bool
+	ReqMsgID    int64
 }
