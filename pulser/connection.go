@@ -91,7 +91,7 @@ func HandleHttpConnection(w http.ResponseWriter, r *http.Request) {
 	aliveConnection = w
 	go handleHdata(hData.Data, w, &hData.CacheData)
 
-	dur := time.Duration(5000) * time.Millisecond
+	dur := time.Duration(25000) * time.Millisecond
 
 	timer := time.NewTimer(dur)
 	defer timer.Stop()
