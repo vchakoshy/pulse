@@ -2,7 +2,8 @@ package pulser
 
 import (
 	"net"
-	"pulse/pulser/mtproto"
+
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerMsgsAck(data interface{}, conn net.Conn, cd *mtproto.CacheData) {

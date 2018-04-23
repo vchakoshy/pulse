@@ -6,10 +6,10 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"pulse/pulser/mtproto"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerReqPQ(data interface{}, conn net.Conn, cd *mtproto.CacheData) {

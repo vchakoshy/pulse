@@ -6,10 +6,10 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net"
-	"pulse/pulser/mtproto"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerReqDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) {

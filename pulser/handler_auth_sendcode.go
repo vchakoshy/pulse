@@ -1,7 +1,7 @@
 package pulser
 
 import (
-	"pulse/pulser/mtproto"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerHttpAuthSendCode(cd *mtproto.CacheData) []byte {

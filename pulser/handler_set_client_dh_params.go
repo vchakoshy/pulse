@@ -7,10 +7,10 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"pulse/pulser/mtproto"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerSetClientDHParams(data interface{}, conn net.Conn, cd *mtproto.CacheData) {

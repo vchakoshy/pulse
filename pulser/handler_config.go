@@ -3,10 +3,10 @@ package pulser
 import (
 	"log"
 	"net"
-	"pulse/pulser/mtproto"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 func handlerinvokeWithLayer(data interface{}, conn net.Conn, cd *mtproto.CacheData) {

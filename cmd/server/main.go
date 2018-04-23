@@ -5,8 +5,9 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"pulse/pulser"
-	"pulse/pulser/mtproto"
+
+	"github.com/vchakoshy/pulse/pulser"
+	"github.com/vchakoshy/pulse/pulser/mtproto"
 )
 
 var (
